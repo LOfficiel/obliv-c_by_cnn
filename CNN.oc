@@ -1,0 +1,507 @@
+#include <obliv.oh>
+#include <stdlib.h>
+#include <time.h>
+#include "CNN.h"
+
+double newSqrt(double n)
+{
+	double low, high, mid, tmp;
+
+	// 获取上下界 
+	if (n > 1) {
+		low = 1;
+		high = n;
+	}
+	else {
+		low = n;
+		high = 1;
+	}
+
+	// 二分法求开方 
+	while (low <= high) {
+		mid = (low + high) / 2.000;
+
+		tmp = mid * mid;
+
+		if (tmp - n <= 0.00001 && tmp - n >= 0.00001 * -1) {
+			return mid;
+		}
+		else if (tmp > n) {
+			high = mid;
+		}
+		else {
+			low = mid;
+		}
+	}
+
+	return -1.000;
+}
+
+double exp(double x)
+{
+
+	x = 1.0 + x / 256;
+	x *= x; x *= x; x *= x; x *= x;
+	x *= x; x *= x; x *= x; x *= x;
+	return x;
+}
+
+
+void nn(void* args)
+{
+	protocolIO* io = args;
+	int i, j, k, l, m, n;
+	obliv float Compare = 1; //用于比较
+	//计算时间
+	struct timeval start, end;
+	gettimeofday(&start, NULL);  // start time
+
+
+	//p1, user input
+	obliv float input[28][28];
+
+
+	//obliv float input[28][28]
+	for (i = 0; i < 28; i++)
+	{
+		for (j = 0; j < 28; j++)
+		{
+			input[i][j] = feedOblivFloat(io->input[i][j], 1);
+		}
+	}
+
+	//p2, model params;
+	//Conv2d(0)
+	obliv float BConv1_weight[6][5][5];		//从1_features_0_weight.txt输入
+	obliv float BConv1_bias[6];				//从2_features_0_bias.txt输入
+	//Conv2d(4)
+		//obliv float BConv2_weight[96][5][5];	//从3_features_4_weight.txt输入
+	obliv float*** BConv2_weight = (obliv float***)malloc(sizeof(obliv float**) * 96);
+	for (i = 0; i < 96; i++)
+	{
+		BConv2_weight[i] = (obliv float**)malloc(sizeof(obliv float*) * 5);
+		for (j = 0; j < 5; j++)
+		{
+			BConv2_weight[i][j] = (obliv float*)malloc(sizeof(obliv float) * 5);
+		}
+	}
+	//float BConv2_bias[16];			//从4_features_4_bias.txt
+	obliv float BConv2_bias[16];
+
+
+
+	//Linear(0)
+		//obliv float BL_weight[120][400];			//从10_classifier_0_weight.txt输入
+	obliv float** BL_weight = (obliv float**)malloc(sizeof(obliv float*) * 120);
+	for (i = 0; i < 120; i++)
+	{
+		BL_weight[i] = (obliv float*)malloc(sizeof(obliv float) * 400);
+
+	}
+
+	obliv float BL_bias[120];					//从11_classifier_0_bias.txt输入
+	//Linear(1)
+		//float Linear_weight[84][120];			//从12_classifier_1_weight.txt输入
+	obliv float** Linear1_weight = (obliv float**)malloc(sizeof(obliv float*) * 84);
+	for (i = 0; i < 84; i++)
+	{
+		Linear1_weight[i] = (obliv float*)malloc(sizeof(obliv float) * 120);
+
+	}
+	obliv float Linear1_bias[84];				//从13_classifier_1_bias.txt输入
+
+	//Linear(2)
+		//float Linear_weight[10][84];			//从14_classifier_2_weight.txt输入
+	obliv float** Linear2_weight = (obliv float**)malloc(sizeof(obliv float*) * 10);
+	for (i = 0; i < 10; i++)
+	{
+		Linear2_weight[i] = (obliv float*)malloc(sizeof(obliv float) * 84);
+
+	}
+	obliv float Linear2_bias[84];				//从14_classifier_2_bias.txt输入
+
+	//BinarizeConv2d(0)
+		//BConv1_weight[6][5][5]
+	for (i = 0; i < 6; i++)
+	{
+		for (j = 0; j < 5; j++)
+		{
+			for (k = 0; k < 5; k++)
+			{
+				BConv1_weight[i][j][k] = feedOblivFloat(io->BConv1_weight[i][j][k], 2);
+			}
+		}
+	}
+
+	//BConv1_bias[6]
+	for (i = 0; i < 6; i++)
+	{
+		BConv1_bias[i] = feedOblivFloat(io->BConv1_bias[i], 2);
+	}
+	
+	//BinarizeConv2d(4)
+		//BConv2_weight[96][5][5]
+	for (i = 0; i < 96; i++)
+	{
+		for (j = 0; j < 5; j++)
+		{
+			for (k = 0; k < 5; k++)
+			{
+				BConv2_weight[i][j][k] = feedOblivFloat(io->BConv2_weight[i][j][k], 2);
+			}
+		}
+	}
+
+	//BConv2_bias[16]
+	for (i = 0; i < 16; i++)
+	{
+		BConv2_bias[i] = feedOblivFloat(io->BConv2_bias[i], 2);
+	}
+	
+	
+
+	//BinarizeLinear(0)
+		//float BL_weight[120][400];
+	for (i = 0; i < 120; i++)
+	{
+		for (j = 0; j < 400; j++)
+		{
+			BL_weight[i][j] = feedOblivFloat(io->BL_weight[i][j], 2);
+		}
+	}
+
+	//float BL_bias[120];
+	for (i = 0; i < 120; i++)
+	{
+		BL_bias[i] = feedOblivFloat(io->BL_bias[i], 2);
+	}
+	
+	//Linear(1)
+		//float Linear1_weight[84][120];
+	for (i = 0; i < 84; i++)
+	{
+		for (j = 0; j < 120; j++)
+		{
+			Linear1_weight[i][j] = feedOblivFloat(io->Linear1_weight[i][j], 2);
+		}
+	}
+	//float Linear1_bias[84];
+	for (i = 0; i < 84; i++)
+	{
+		Linear1_bias[i] = feedOblivFloat(io->Linear1_bias[i], 2);
+	}
+	
+	//Linear(2)
+		//float Linear2_weight[10][84];
+	for (i = 0; i < 10; i++)
+	{
+		for (j = 0; j < 84; j++)
+		{
+			Linear2_weight[i][j] = feedOblivFloat(io->Linear2_weight[i][j], 2);
+		}
+	}
+	//float Linear_bias[10];
+	for (i = 0; i < 10; i++)
+	{
+		Linear2_bias[i] = feedOblivFloat(io->Linear2_bias[i], 2);
+	}
+	
+
+
+	//Calculation
+
+	//(0) BinarizeConv2d(1, 6, kernel_size=5, stride=1, padding=2, bias=True)
+	obliv float** Input_0;			//校正输入，补空2圈0
+	Input_0 = (obliv float**)malloc(sizeof(obliv float*) * 32);
+	for (i = 0; i < 32; i++)
+	{
+		Input_0[i] = (obliv float*)malloc(sizeof(obliv float) * 32);
+		for (j = 0; j < 32; j++)
+		{
+			if (i == 0 || i == 1 || i == 30 || i == 31 || j == 0 || j == 1 || j == 30 || j == 31)
+			{
+				Input_0[i][j] = 0;
+			}
+			else
+			{
+				Input_0[i][j] = input[i - 2][j - 2];
+			}
+		}
+	}
+
+		//进行卷积运算，每次取25个数进行卷积，输出为Output[6][28][28]
+	obliv float*** Output_0 = (obliv float***)malloc(sizeof(obliv float**) * 6);
+	obliv float temp = 0;//用于保存中间数据
+	for (i = 0; i < 6; i++)
+	{
+		Output_0[i] = (obliv float**)malloc(sizeof(obliv float*) * 28);
+		for (j = 0; j < 28; j++)
+		{
+			Output_0[i][j] = (obliv float*)malloc(sizeof(obliv float) * 28);
+		}
+	}
+
+	for (i = 0; i < 6; i++)
+	{
+		for (j = 0; j < 28; j++)
+		{
+			for (k = 0; k < 28; k++)
+			{
+				temp = 0;
+				//总共有6*28*28个数要填空，每个填空有25个乘法，一个加法
+				for (l = 0; l < 5; l++)
+				{
+					for (m = 0; m < 5; m++)
+					{
+						temp = temp + Input_0[l + j][m + k] * BConv1_weight[i][l][m];
+					}
+				}
+				temp += BConv1_bias[i];
+				Output_0[i][j][k] = temp;
+			}
+		}
+	}
+	
+	//(1) : MaxPool2d(kernel_size = 2, stride = 2, padding = 0, dilation = 1, ceil_mode = False)
+	obliv float Output_1[6][14][14];
+	for (i = 0; i < 6; i++)
+	{
+		for (j = 0; j < 14; j++)
+		{
+			for (k = 0; k < 14; k++)
+			{
+				temp = Output_0[i][j * 2][k * 2];
+				obliv if (temp < Output_0[i][j * 2][k * 2 + 1])
+				{
+					temp = Output_0[i][j * 2][k * 2 + 1];
+				}
+				obliv if (temp < Output_0[i][j * 2 + 1][k * 2])
+				{
+					temp = Output_0[i][j * 2 + 1][k * 2];
+				}
+				obliv if (temp < Output_0[i][j * 2 + 1][k * 2 + 1])
+				{
+					temp = Output_0[i][j * 2 + 1][k * 2 + 1];
+				}
+				Output_1[i][j][k] = temp;
+			}
+
+		}
+	}
+	
+	
+
+	
+	//(4): BinarizeConv2d(6, 16, kernel_size=5, stride=1, padding=0, bias=True)
+	obliv float*** Input_4;			//校正输入，不补0，为input_4[6][14][14]
+	Input_4 = (obliv float***)malloc(sizeof(obliv float**) * 6);
+	for (i = 0; i < 6; i++)
+	{
+		Input_4[i] = (obliv float**)malloc(sizeof(obliv float*) * 14);
+		for (j = 0; j < 14; j++)
+		{
+			Input_4[i][j] = (obliv float*)malloc(sizeof(obliv float) * 14);
+			for (k = 0; k < 14; k++)
+			{
+				Input_4[i][j][k] = Output_1[i][j][k];
+			}
+
+		}
+	}
+
+	//进行卷积运算，每次取25个数进行卷积，输出为Output[16][10][10]
+	obliv float*** Output_4 = (obliv float***)malloc(sizeof(obliv float**) * 16);
+	obliv float Temp[6];//用于保存中间数据
+	for (i = 0; i < 16; i++)
+	{
+		Output_4[i] = (obliv float**)malloc(sizeof(obliv float*) * 10);
+		for (j = 0; j < 10; j++)
+		{
+			Output_4[i][j] = (obliv float*)malloc(sizeof(obliv float) * 10);
+		}
+	}
+
+	for (i = 0; i < 16; i++)
+	{
+		for (j = 0; j < 10; j++)
+		{
+			for (k = 0; k < 10; k++)
+			{
+				temp = 0;
+				Temp[1] = 0;
+				Temp[2] = 0;
+				Temp[3] = 0;
+				Temp[4] = 0;
+				Temp[5] = 0;
+				Temp[0] = 0;
+				//总共有6*10*10个数要填空，每个填空有9个乘法，一个加法
+				for (l = 0; l < 5; l++)
+				{
+					for (m = 0; m < 5; m++)
+					{
+						
+						Temp[0] = Temp[0] + Input_4[0][l + j][m + k] * BConv2_weight[i * 6][l][m];
+						
+						
+						Temp[1] = Temp[1] + Input_4[1][l + j][m + k] * BConv2_weight[i * 6 + 1][l][m];
+						
+						
+						Temp[2] = Temp[2] + Input_4[2][l + j][m + k] * BConv2_weight[i * 6 + 2][l][m];
+						
+						
+						Temp[3] = Temp[3] + Input_4[3][l + j][m + k] * BConv2_weight[i * 6 + 3][l][m];
+						
+						
+						Temp[4] = Temp[4] + Input_4[4][l + j][m + k] * BConv2_weight[i * 6 + 4][l][m];
+						
+						
+						Temp[5] = Temp[5] + Input_4[5][l + j][m + k] * BConv2_weight[i * 6 + 5][l][m];
+						
+					}
+				}
+				temp = temp + Temp[0] + Temp[1] + Temp[2] + Temp[3]+ Temp[4] + Temp[5] + BConv2_bias[i];
+				Output_4[i][j][k] = temp;
+			}
+		}
+	}
+
+	
+	
+	
+	//(8) : MaxPool2d(kernel_size = 2, stride = 2, padding = 0, dilation = 1, ceil_mode = False)
+	obliv float Output_8[16][5][5];
+	for (i = 0; i < 16; i++)
+	{
+		for (j = 0; j < 5; j++)
+		{
+			for (k = 0; k < 5; k++)
+			{
+				temp = Output_4[i][j * 2][k * 2];
+				obliv if (temp < Output_4[i][j * 2][k * 2 + 1])
+				{
+					temp = Output_4[i][j * 2][k * 2 + 1];
+				}
+				obliv if (temp < Output_4[i][j * 2 + 1][k * 2])
+				{
+					temp = Output_4[i][j * 2 + 1][k * 2];
+				}
+				obliv if (temp < Output_4[i][j * 2 + 1][k * 2 + 1])
+				{
+					temp = Output_4[i][j * 2 + 1][k * 2 + 1];
+				}
+				Output_8[i][j][k] = temp;
+			}
+
+		}
+	}
+	
+	
+	//(9) : BinarizeLinear(in_features = 400, out_features = 120, bias = True)
+	obliv float Output_9[120];
+	obliv float Input_9[400];
+
+	l = 0;
+	for (i = 0; i < 16; i++)
+	{
+		for (j = 0; j < 5; j++)
+		{
+			for (k = 0; k < 5; k++)
+			{
+				Input_9[l++] = Output_8[i][j][k];
+			}
+		}
+	}
+	for (i = 0; i < 120; i++)
+	{
+		temp = 0;
+		for (j = 0; j < 400; j++)
+		{
+			obliv if (Input_9[j] == Compare)
+			{
+				temp = temp + BL_weight[i][j];
+			}
+		}
+		temp = temp + BL_bias[i];
+		Output_9[i] = temp;
+	}
+
+	
+
+	
+	//(10) : Linear(in_features = 120, out_features = 84, bias = True)
+	obliv float Output_10[84];
+	for (i = 0; i < 84; i++)
+	{
+		temp = 0;
+		for (j = 0; j < 120; j++)
+		{
+			temp = temp + Output_9[j] * Linear1_weight[i][j];
+		}
+		temp = temp + Linear1_bias[i];
+		Output_10[i] = temp;
+	}
+
+	/*for (i = 0; i < 84; i++)
+	{
+
+		revealOblivFloat(&io->Check[i], Output_10[i], 2);
+
+	}*/
+	
+	//(11) : Linear(in_features = 84, out_features = 10, bias = True)
+	obliv float Output_11[10];
+	for (i = 0; i < 10; i++)
+	{
+		temp = 0;
+		for (j = 0; j < 84; j++)
+		{
+			temp = temp + Output_10[j] * Linear2_weight[i][j];
+		}
+		temp = temp + Linear2_bias[i];
+		Output_11[i] = temp;
+	}
+
+	//(12) : LogSoftmax(dim = None)
+	obliv float Sum = 0;
+	obliv float Input_12[10];
+	obliv float Output_12[10];
+	int TEMP = 0;
+	for (i = 0; i < 10; i++)
+	{
+		revealOblivFloat(&TEMP, Output_11[i], 2);
+		TEMP = exp(TEMP);
+		Input_12[i] = feedOblivFloat(TEMP, 2);
+		Sum = Sum + Input_12[i];
+	}
+
+	for (i = 0; i < 10; i++)
+	{
+		Output_12[i] = Input_12[i] / Sum;
+	}
+	
+	//得出结果
+	
+	temp = Output_12[0];
+	obliv int Result = 0;
+	for (i = 1; i < 10; i++)
+	{
+		obliv if (temp < Output_12[i])
+		{
+			temp = Output_12[i];
+			Result = i;
+		}
+	}
+
+	revealOblivInt(&io->result, Result, 2);
+	revealOblivInt(&io->result, Result, 1);
+	
+
+	gettimeofday(&end, NULL);
+	io->start_s = start.tv_sec;
+	io->start_us = start.tv_usec;
+	io->end_s = end.tv_sec;
+	io->end_us = end.tv_usec;
+	io->timeuse_s = end.tv_sec - start.tv_sec;
+	io->timeuse_us = end.tv_usec - start.tv_usec;
+
+}
